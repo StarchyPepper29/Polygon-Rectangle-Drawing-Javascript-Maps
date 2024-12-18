@@ -1,0 +1,93 @@
+<!-- READ ONLY VERSION OF THE MAPS
+IMPORTANT VARIABLES
+* You can give your own polygonLatCoords and polygonLonCoords 
+* scale is used to adjust the zoom level of the map increase the denominator of maxDistance to increase the zoom level
+
+-->
+
+<div id="customMaps" style="height: 100%; width: 100%;"></div>
+
+<script>
+  // Dummy data for polygon coordinates
+  const polygonLatCoords = [1,2,3];
+  const polygonLonCoords = [1,2,3];
+
+  function initMap() {
+    // Initialize the map
+const centroid = calculateCentroid(polygonLatCoords, polygonLonCoords); //Calculates the center of the polygon to show the polygon roughly centered
+const zoom = calculateZoomFromCentroid(polygonLatCoords, polygonLonCoords, centroid); //Dynamically calculate how far the zoom need to be to show the polygon properly (since larger polygons require more zoom)
+    const map = new google.maps.Map(document.getElementById("customMaps"), {
+      center: centroid,      zoom: zoom,
+      mapTypeId: "roadmap",
+      disableDefaultUI: true,
+      clickableIcons: false,
+      draggable: false, //read only
+      zoomControl: false, //read only
+    });
+
+    // Draw the polygon
+    drawPolygon(map, polygonLatCoords, polygonLonCoords);
+  }
+                            
+function calculateZoomFromCentroid(latCoords, lonCoords, centroid) {
+    const earthRadius = 6378137;
+    const boundsDistances = latCoords.map((lat, index) => {
+        const lon = lonCoords[index];
+        return haversineDistance(centroid, { lat, lng: lon }, earthRadius);
+    });
+
+    // Maximum distance from the centroid to any polygon vertex
+    const maxDistance = Math.max(...boundsDistances);
+
+    // Calculate zoom level
+    // Adjust constants to fine-tune scaling
+    const scale = maxDistance / 1000; // Assume 500 meters per zoom level change
+    const maxZoom = 21;
+    const baseZoom = 14; // Default starting zoom level
+    return Math.max(0, Math.min(maxZoom, baseZoom - Math.log2(scale)));
+}
+
+function haversineDistance(coord1, coord2, radius) {
+    const toRad = (deg) => (deg * Math.PI) / 180;
+    const dLat = toRad(coord2.lat - coord1.lat);
+    const dLon = toRad(coord2.lng - coord1.lng);
+
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(coord1.lat)) *
+            Math.cos(toRad(coord2.lat)) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return radius * c; // Distance in meters
+}                            
+                            
+  function calculateCentroid(latCoords, lonCoords) {
+    const latSum = latCoords.reduce((sum, lat) => sum + lat, 0);
+    const lonSum = lonCoords.reduce((sum, lon) => sum + lon, 0);
+
+    const latAvg = latSum / latCoords.length;
+    const lonAvg = lonSum / lonCoords.length;
+
+    return { lat: latAvg, lng: lonAvg };
+  }
+                            
+                            
+                            
+  // Function to draw a polygon
+  function drawPolygon(map, latCoords, lonCoords) {
+    const polygon = new google.maps.Polygon({
+      paths: latCoords.map((lat, index) => ({ lat, lng: lonCoords[index] })),
+      strokeColor: "#4C2EEB",
+      strokeOpacity: 1,
+      strokeWeight: 2,
+      fillColor: "#4C2EEB",
+      fillOpacity: 0.1,
+    });
+
+    polygon.setMap(map);
+  }
+</script>
+
+<script async src="https://maps.googleapis.com/maps/api/js?key=API_KEY&callback=initMap"></script>

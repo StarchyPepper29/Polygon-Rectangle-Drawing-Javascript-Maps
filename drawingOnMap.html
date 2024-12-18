@@ -1,0 +1,199 @@
+
+<!-- 
+ THIS CODE IS FOR DRAWING POLYGONS AND RECTANGLES ON A GOOGLE MAP 
+
+    IMPORTANT VARIABLES
+* You can access polygonLatCoords and polygonLonCoords to get the coordinates of the polygon vertices
+* You can access rectangleLatCoords and rectangleLonCoords to get the coordinates of the rectangle vertices
+* shapeIndex is used to determine whether the user is drawing a polygon or a rectangle (0 for polygon, 1 for rectangle)
+* mapState is used to determine whether the user can draw on the map (true for drawing, false for not drawing)
+* startLatLng is used to store the starting point of the rectangle
+* polygon and rectangle are used to store the polygon and rectangle objects
+* map is the map object
+* The map is initialized with the center at Berlin, Germany (lat: 52.524929, lng: 13.369181) and zoom level 14 (customizable)
+
+
+NOTE
+* When a rectangle is drawn in every case it will have 4 latitudes and 4 longitudes. However they are pushed into a wrong order so that we need to manually swap the 2nd and 3rd element in the array
+to ensure the rectangle is drawn correclty and not criss crossing for which the swapCoords function is used
+-->
+
+
+
+
+
+
+<div id="map" style="height: 100%; width: 100%;"></div>
+
+<script>
+
+  // These variables store the coordinates of the polygon and rectangle
+  var polygonLatCoords = []; 
+  var polygonLonCoords = [];
+
+  var rectangleLatCoords = []; 
+  var rectangleLonCoords = [];
+
+  //pass this rectangle coords before using
+  function swapCoords(latCoords, lonCoords) {
+  
+    [latCoords[1], latCoords[2]] = [latCoords[2], latCoords[1]];
+    [lonCoords[1], lonCoords[2]] = [lonCoords[2], lonCoords[1]];
+  }
+
+  return { latCoords, lonCoords };
+
+ 
+  function initMap() {
+
+    const map = new google.maps.Map(document.getElementById("map"), {
+      center: { lat: 52.524929, lng: 13.369181 },
+      zoom: 14,
+      zoomControl: false,
+      mapTypeId: "roadmap",
+      disableDefaultUI: true,
+      clickableIcons: false,
+      fullscreenControl: false,
+      streetViewControl: false,
+      mapTypeControl: false,
+    });
+
+    let polygon;
+    let rectangle;
+
+    let mapState = true; 
+
+
+    //Determines whether clicking on the map will draw a polygon or a rectangle
+
+    let shapeIndex = 0;
+
+
+    
+    map.addListener("click", (event) => {
+
+
+
+
+    // Draw a polygon when the user clicks on the map
+
+      if (!mapState || shapeIndex !== 0) return;
+
+      const clickedLatLng = event.latLng;
+
+      polygonLatCoords.push(clickedLatLng.lat());
+      polygonLonCoords.push(clickedLatLng.lng());
+
+      
+
+      new google.maps.Circle({
+        strokeColor: "#4C2EEB",
+        strokeOpacity: 1,
+        strokeWeight: 2,
+        fillColor: "#FFFFFF",
+        fillOpacity: 1,
+        map,
+        center: clickedLatLng,
+        radius: 30,
+      });
+
+      // Draws the polygon after the third vertex placed
+      if (polygonLatCoords.length > 2) {
+        drawPolygon(map, polygonLatCoords, polygonLonCoords);
+      }
+    });
+
+    let startLatLng;
+
+    
+    map.addListener("mousedown", (event) => {
+      if (!mapState || shapeIndex !== 1) return;
+
+        //Place a rectangle when the user clicks on the map
+    
+      rectangleLatCoords.length = 0;
+      rectangleLonCoords.length = 0;
+
+      startLatLng = event.latLng;
+    });
+
+    map.addListener("mouseup", (event) => {
+      if (!mapState || shapeIndex !== 1 || !startLatLng) return;
+
+      const endLatLng = event.latLng;
+
+    
+      const bounds = {
+        north: Math.max(startLatLng.lat(), endLatLng.lat()) + 0.0005,
+        south: Math.min(startLatLng.lat(), endLatLng.lat()) - 0.0005,
+        east: Math.max(startLatLng.lng(), endLatLng.lng()) + 0.0005,
+        west: Math.min(startLatLng.lng(), endLatLng.lng()) - 0.0005,
+      };
+
+      if (rectangle) {
+        rectangle.setMap(null);
+      }
+
+      rectangle = new google.maps.Rectangle({
+        bounds: bounds,
+        strokeColor: "#4C2EEB",
+        strokeOpacity: 1,
+        strokeWeight: 2,
+        fillColor: "#4C2EEB",
+        fillOpacity: 0.1,
+        editable: true,
+        map,
+      });
+
+    
+      rectangle.addListener("bounds_changed", () => {
+        const newBounds = rectangle.getBounds();
+        const ne = newBounds.getNorthEast();
+        const sw = newBounds.getSouthWest();
+
+    
+        rectangleLatCoords.length = 0; 
+        rectangleLonCoords.length = 0;
+
+        rectangleLatCoords.push(ne.lat(), sw.lat(), ne.lat(), sw.lat());
+        rectangleLonCoords.push(ne.lng(), sw.lng(), sw.lng(), ne.lng());
+
+       
+      });
+
+      
+      rectangleLatCoords.push(bounds.north, bounds.south, bounds.north, bounds.south);
+      rectangleLonCoords.push(bounds.east, bounds.west, bounds.west, bounds.east);
+      
+
+      startLatLng = null;
+    });
+
+   
+
+    
+    function drawPolygon(map, latcoords, loncoords) {
+      if (polygon) {
+        polygon.setMap(null);
+      }
+
+      polygon = new google.maps.Polygon({
+        paths: latcoords.map((lat, index) => ({ lat, lng: loncoords[index] })),
+        strokeColor: "#4C2EEB",
+        strokeOpacity: 1,
+        strokeWeight: 2,
+        fillColor: "#4C2EEB",
+        fillOpacity: 0.1,
+        editable: false, 
+    draggable: false, 
+      });
+
+      polygon.setMap(map);
+    }
+
+    
+    
+  }
+</script>
+
+<script async src="https://maps.googleapis.com/maps/api/js?key=API_KEY&callback=initMap"></script>
